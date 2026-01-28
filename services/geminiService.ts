@@ -29,6 +29,7 @@ Extraia itens financeiros de texto natural e categorize-os em: house, fixed, wor
 `;
 
 export async function parseNaturalLanguage(text: string): Promise<Partial<FinanceItem>[]> {
+  // Create a new GoogleGenAI instance right before making an API call to ensure it uses the correct context.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -43,11 +44,21 @@ export async function parseNaturalLanguage(text: string): Promise<Partial<Financ
           properties: {
             description: { type: Type.STRING },
             value: { type: Type.NUMBER },
-            category: { type: Type.STRING, enum: ['house', 'fixed', 'work', 'thirdParty'] },
-            paidInstallments: { type: Type.NUMBER, nullable: true },
-            totalInstallments: { type: Type.NUMBER, nullable: true },
+            category: { 
+              type: Type.STRING, 
+              description: "The category of the expense: 'house', 'fixed', 'work', or 'thirdParty'." 
+            },
+            paidInstallments: { 
+              type: Type.NUMBER, 
+              description: "Number of installments already paid (optional)." 
+            },
+            totalInstallments: { 
+              type: Type.NUMBER, 
+              description: "Total number of installments (optional)." 
+            },
           },
-          required: ["description", "value", "category"]
+          required: ["description", "value", "category"],
+          propertyOrdering: ["description", "value", "category", "paidInstallments", "totalInstallments"]
         }
       }
     }
@@ -56,6 +67,7 @@ export async function parseNaturalLanguage(text: string): Promise<Partial<Financ
 }
 
 export async function analyzeFinanceData(items: FinanceItem[]): Promise<FinanceAnalysis> {
+  // Create a new GoogleGenAI instance right before making an API call to ensure it uses the correct context.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const income = items.filter(i => i.category === 'work').reduce((a, b) => a + b.value, 0);
@@ -79,11 +91,12 @@ export async function analyzeFinanceData(items: FinanceItem[]): Promise<FinanceA
               totalWorkIncome: { type: Type.NUMBER },
               totalExpenses: { type: Type.NUMBER },
               remainingBalance: { type: Type.NUMBER },
-              compromisePercentage: { type: Type.NUMBER, description: "Ratio decimal (ex: 0.75)" },
+              compromisePercentage: { type: Type.NUMBER, description: "Ratio decimal (ex: 0.75 for 75%)" },
               status: { type: Type.STRING },
-              alertMessage: { type: Type.STRING, nullable: true }
+              alertMessage: { type: Type.STRING, description: "Risk warning message if any, or an empty string." }
             },
-            required: ["totalWorkIncome", "totalExpenses", "remainingBalance", "compromisePercentage", "status"]
+            required: ["totalWorkIncome", "totalExpenses", "remainingBalance", "compromisePercentage", "status"],
+            propertyOrdering: ["totalWorkIncome", "totalExpenses", "remainingBalance", "compromisePercentage", "status", "alertMessage"]
           }
         },
         required: ["summary"]

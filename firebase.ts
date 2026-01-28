@@ -1,14 +1,23 @@
 
+// Modular SDK v9+ imports for Firebase
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, getDoc, enableIndexedDbPersistence } from "firebase/firestore";
-// Correctly import auth functions from the modular Firebase SDK
+// Import auth functions directly from the modular SDK entry point
+// Consolidated imports into single statements to ensure clean module resolution
 import { 
   getAuth, 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  signOut 
+  signOut, 
+  updatePassword 
 } from "firebase/auth";
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  enableIndexedDbPersistence 
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBEpCRgz97nmq8zM4MEEYWXxePhXXUitEs",
@@ -25,7 +34,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Enable offline persistence for Firestore
+// Enable offline persistence for Firestore using the standard modular SDK v9 approach
 try {
   enableIndexedDbPersistence(db).catch((err) => {
     if (err.code === 'failed-precondition') {
@@ -83,12 +92,13 @@ export const loadUserData = async () => {
   }
 };
 
-// Re-export specific auth members and instances for app-wide use
+// Re-export auth members to ensure they are available to components using the modular pattern
 export { 
   db, 
   auth, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut, 
-  onAuthStateChanged 
+  onAuthStateChanged,
+  updatePassword
 };
