@@ -43,11 +43,10 @@ const ExpenseTable: React.FC<ExpenseTableProps> = ({
         </span>
       </div>
       <div className="overflow-x-auto no-scrollbar">
-        {/* Adicionado min-width para garantir que as colunas não fiquem excessivamente espremidas em telas pequenas */}
         <table className="w-full text-[11px] font-mono border-collapse min-w-[600px] lg:min-w-0">
           <thead>
             <tr className="bg-slate-50/30 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 uppercase tracking-tighter">
-              {showStatus && <th className="px-4 py-3 text-center font-black border-r border-slate-100 dark:border-slate-800 w-28">Status</th>}
+              {showStatus && <th className="px-4 py-3 text-center font-black border-r border-slate-100 dark:border-slate-800 w-32">Status</th>}
               <th className="px-4 lg:px-6 py-3 text-left font-black border-r border-slate-100 dark:border-slate-800">Descrição</th>
               <th className="px-4 lg:px-6 py-3 text-right font-black border-r border-slate-100 dark:border-slate-800 w-36 lg:w-40">Valor</th>
               <th className="px-4 lg:px-6 py-3 text-center font-black w-24">Parcelas</th>
@@ -59,12 +58,13 @@ const ExpenseTable: React.FC<ExpenseTableProps> = ({
               items.map((item) => (
                 <tr key={item.id} className={`hover:bg-blue-50/30 dark:hover:bg-blue-500/5 transition-colors group ${item.status === 'paid' ? 'bg-slate-50/30 dark:bg-slate-800/30 opacity-60' : ''}`}>
                   {showStatus && (
-                    <td className="px-2 py-2 border-r border-slate-100 dark:border-slate-800">
-                      <div className="flex justify-center">
+                    <td className="px-2 py-2 border-r border-slate-100 dark:border-slate-800 align-middle">
+                      <div className="flex justify-center items-center w-full h-full">
                         <select
                           value={item.status}
                           onChange={(e) => onUpdate(item.id, { status: e.target.value as any })}
-                          className={`w-full text-[9px] font-black uppercase py-1.5 rounded-lg border outline-none transition-all cursor-pointer text-center ${
+                          style={{ textAlignLast: 'center' }}
+                          className={`w-[110px] text-[9px] font-black uppercase py-1.5 rounded-lg border outline-none transition-all cursor-pointer text-center mx-auto ${
                             item.status === 'paid' 
                               ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30' 
                               : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/30'

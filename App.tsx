@@ -22,7 +22,8 @@ import {
   Copy,
   History,
   Menu,
-  X
+  X,
+  Edit2
 } from 'lucide-react';
 import { FinanceItem, HealthStatus, FinanceAnalysis, Ledger } from './types';
 import ExpenseTable from './components/ExpenseTable';
@@ -39,15 +40,12 @@ const App: React.FC = () => {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysis, setAnalysis] = useState<FinanceAnalysis | null>(null);
   
-  // Sidebar states with responsive defaults
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'dark';
   });
 
-  // Password change states
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -181,13 +179,20 @@ const App: React.FC = () => {
     setActiveTabId(newTab.id);
   };
 
+  const renameTab = (id: string, currentName: string) => {
+    const newName = prompt("Renomear planilha para:", currentName);
+    if (newName !== null && newName.trim() !== "") {
+      setTabs(prev => prev.map(t => t.id === id ? { ...t, name: newName.trim() } : t));
+    }
+  };
+
   const duplicateTab = (idToDuplicate: string) => {
     const tabToCopy = tabs.find(t => t.id === idToDuplicate);
     if (!tabToCopy) return;
 
     const newTab: Ledger = {
       ...tabToCopy,
-      id: 'tab-' + Date.now(),
+      id: 'tab-' + Date.now() + Math.random().toString(36).substr(2, 5),
       name: `${tabToCopy.name} (Cópia)`,
       items: tabToCopy.items.map(item => ({ 
         ...item, 
@@ -200,14 +205,19 @@ const App: React.FC = () => {
   };
 
   const deleteTab = (idToDelete: string) => {
-    if (tabs.length <= 1) return;
-    if (window.confirm("Deseja realmente apagar esta planilha?")) {
+    if (tabs.length <= 1) {
+      alert("Não é possível excluir a única planilha ativa.");
+      return;
+    }
+    if (window.confirm("Deseja realmente excluir permanentemente esta planilha?")) {
       const indexToDelete = tabs.findIndex(t => t.id === idToDelete);
       const newTabs = tabs.filter(t => t.id !== idToDelete);
+      
       if (idToDelete === activeTabId) {
-        const nextIndex = indexToDelete === 0 ? 0 : indexToDelete - 1;
-        setActiveTabId(newTabs[nextIndex].id);
+        const nextActiveIndex = indexToDelete === 0 ? 0 : indexToDelete - 1;
+        setActiveTabId(newTabs[nextActiveIndex].id);
       }
+      
       setTabs(newTabs);
     }
   };
@@ -280,7 +290,6 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
       
-      {/* SIDEBAR RETRÁTIL - MELHORIA RESPONSIVA */}
       <aside 
         className={`bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col fixed h-full z-50 transition-all duration-300 
         ${isSidebarOpen ? 'w-[280px]' : 'w-0 lg:w-[80px] overflow-hidden lg:overflow-visible'}`}
@@ -432,11 +441,9 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* ÁREA DE CONTEÚDO PRINCIPAL - RESPONSIVIDADE DE MARGEM E PADDING */}
       <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'lg:ml-[280px]' : 'lg:ml-[80px]'} ml-0`}>
         <header className="h-16 lg:h-20 flex items-center justify-between px-4 lg:px-10 sticky top-0 z-40 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md">
           <div className="flex items-center gap-4">
-             {/* Botão Hambúrguer Mobile */}
              <button 
                onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
                className="lg:hidden p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
@@ -462,37 +469,54 @@ const App: React.FC = () => {
 
         <main className="p-4 lg:p-10 pt-4 space-y-6 lg:space-y-8 max-w-6xl w-full mx-auto">
           
+          {/* TABS HEADER SECTION */}
           <div className="flex items-center border-b border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar gap-2">
             {tabs.map((tab) => (
               <div 
                 key={tab.id}
                 onClick={() => setActiveTabId(tab.id)}
-                className={`flex items-center gap-3 px-4 lg:px-6 py-4 border-b-2 transition-all cursor-pointer whitespace-nowrap group relative ${
+                onDoubleClick={() => renameTab(tab.id, tab.name)}
+                title="Clique duplo para renomear"
+                className={`flex items-center gap-2 px-4 lg:px-5 py-4 border-b-2 transition-all cursor-pointer whitespace-nowrap group relative ${
                   activeTabId === tab.id 
                     ? 'border-slate-900 dark:border-blue-500 text-slate-900 dark:text-white' 
                     : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                 }`}
               >
-                <span className="text-[10px] font-black uppercase tracking-widest">{tab.name}</span>
-                <div className="flex lg:opacity-0 lg:group-hover:opacity-100 items-center gap-1 ml-2 transition-opacity duration-200">
+                <span className="text-[10px] font-black uppercase tracking-widest">
+                  {tab.name}
+                </span>
+                
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); renameTab(tab.id, tab.name); }}
+                    className="text-slate-400 hover:text-blue-500 transition-colors p-1"
+                    title="Renomear"
+                  >
+                    <Edit2 size={11} />
+                  </button>
                   <button 
                     onClick={(e) => { e.stopPropagation(); duplicateTab(tab.id); }} 
-                    className="text-slate-300 hover:text-blue-500 transition-colors p-1"
+                    className="text-slate-400 hover:text-blue-500 transition-colors p-1"
+                    title="Duplicar"
                   >
-                    <Copy size={12} />
+                    <Copy size={11} />
                   </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); deleteTab(tab.id); }} 
-                    className={`text-slate-300 hover:text-rose-600 transition-colors p-1 ${tabs.length > 1 ? 'block' : 'hidden'}`}
-                  >
-                    <Trash2 size={12} />
-                  </button>
+                  {tabs.length > 1 && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); deleteTab(tab.id); }} 
+                      className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                      title="Excluir"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
             <button onClick={addNewTab} className="px-6 py-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all flex items-center gap-2 border-b-2 border-transparent">
               <Plus size={14} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Novo</span>
+              <span className="text-[10px] font-black uppercase tracking-widest">Nova Aba</span>
             </button>
           </div>
 
@@ -615,7 +639,6 @@ const App: React.FC = () => {
         </footer>
       </div>
 
-      {/* Overlay para fechar sidebar no mobile quando aberta */}
       {isSidebarOpen && (
         <div 
           onClick={() => setIsSidebarOpen(false)} 
