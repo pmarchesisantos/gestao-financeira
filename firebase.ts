@@ -1,5 +1,14 @@
+
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, getDoc, enableIndexedDbPersistence } from "firebase/firestore";
+// Correctly import auth functions from the modular Firebase SDK
+import { 
+  getAuth, 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut 
+} from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBEpCRgz97nmq8zM4MEEYWXxePhXXUitEs",
@@ -11,12 +20,12 @@ const firebaseConfig = {
   measurementId: "G-JEK5QBDXS5"
 };
 
-// Inicializa o Firebase
+// Initialize Firebase services
 const app = initializeApp(firebaseConfig);
-// Inicializa o Firestore
 const db = getFirestore(app);
+const auth = getAuth(app);
 
-// Habilita persistência offline
+// Enable offline persistence for Firestore
 try {
   enableIndexedDbPersistence(db).catch((err) => {
     if (err.code === 'failed-precondition') {
@@ -29,37 +38,20 @@ try {
   console.warn("Erro ao configurar persistência do Firebase.");
 }
 
-/**
- * Firestore não aceita valores 'undefined'. 
- * Esta função remove recursivamente chaves com valor undefined de objetos e arrays.
- */
+// Utility to ensure data is serializable for Firestore
 const sanitizeForFirestore = (data: any): any => {
-  // Converte para JSON e volta para objeto, removendo automaticamente chaves 'undefined'
   return JSON.parse(JSON.stringify(data, (key, value) => 
     value === undefined ? null : value
   ));
 };
 
-export const getUserId = () => {
-  let uid = localStorage.getItem('mf_user_id_v2');
-  if (!uid) {
-    uid = 'u_' + Math.random().toString(36).substring(2, 15);
-    localStorage.setItem('mf_user_id_v2', uid);
-  }
-  return uid;
-};
-
-/**
- * Salva os dados no Firestore garantindo que as categorias 
- * (house, fixed, work, thirdParty) sejam preservadas para análise de saúde financeira.
- */
+// Save user financial data to Firestore
 export const saveUserData = async (tabs: any[]) => {
-  const uid = getUserId();
-  if (!uid) return;
+  const user = auth.currentUser;
+  if (!user) return;
 
   try {
-    const userDoc = doc(db, "users", uid);
-    // Sanitizamos os dados para evitar o erro "Unsupported field value: undefined"
+    const userDoc = doc(db, "users", user.uid);
     const sanitizedTabs = sanitizeForFirestore(tabs);
     
     await setDoc(userDoc, {
@@ -73,19 +65,30 @@ export const saveUserData = async (tabs: any[]) => {
   }
 };
 
+// Retrieve user financial data from Firestore
 export const loadUserData = async () => {
-  const uid = getUserId();
+  const user = auth.currentUser;
+  if (!user) return null;
+
   try {
-    const userDoc = doc(db, "users", uid);
+    const userDoc = doc(db, "users", user.uid);
     const docSnap = await getDoc(userDoc);
     if (docSnap.exists()) {
       return docSnap.data().tabs;
     }
     return null;
   } catch (e: any) {
-    console.warn("Firestore inacessível no momento. Usando dados locais.");
+    console.warn("Firestore inacessível. Usando dados locais.");
     return null;
   }
 };
 
-export { db };
+// Re-export specific auth members and instances for app-wide use
+export { 
+  db, 
+  auth, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged 
+};

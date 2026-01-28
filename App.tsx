@@ -9,14 +9,17 @@ import {
   Trash2,
   RefreshCw,
   CheckCircle2,
-  CloudOff
+  CloudOff,
+  LogOut
 } from 'lucide-react';
 import { FinanceItem, HealthStatus, FinanceAnalysis, Ledger } from './types';
 import ExpenseTable from './components/ExpenseTable';
+import AuthForm from './components/AuthForm';
 import { analyzeFinanceData } from './services/geminiService';
-import { saveUserData, loadUserData } from './firebase';
+import { saveUserData, loadUserData, auth, onAuthStateChanged, signOut } from './firebase';
 
 const App: React.FC = () => {
+  const [user, setUser] = useState<any>(null);
   const [tabs, setTabs] = useState<Ledger[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>('');
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'local'>('syncing');
@@ -30,55 +33,49 @@ const App: React.FC = () => {
   const [mInstPaid, setMInstPaid] = useState('');
   const [mInstTotal, setMInstTotal] = useState('');
 
-  // 1. Carregamento inicial inteligente
+  // Gerenciamento de Autenticação
   useEffect(() => {
-    const init = async () => {
-      try {
-        const cloudData = await loadUserData();
-        
-        // Se temos dados na nuvem, eles são prioridade
-        if (cloudData && Array.isArray(cloudData) && cloudData.length > 0) {
-          setTabs(cloudData);
-          setActiveTabId(cloudData[0].id);
-          setSyncStatus('synced');
-        } else {
-          // Fallback para LocalStorage se a nuvem falhar ou estiver vazia
-          const savedLocal = localStorage.getItem('mf_tabs_v6');
-          if (savedLocal) {
-            const parsed = JSON.parse(savedLocal);
-            setTabs(parsed);
-            setActiveTabId(parsed[0]?.id || '');
-            setSyncStatus('local');
-          } else {
-            // Estado inicial limpo
-            const defaultTab: Ledger = {
-              id: 'tab-' + Date.now(),
-              name: 'Planilha Principal',
-              month: new Date().getMonth() + 1,
-              year: new Date().getFullYear(),
-              items: []
-            };
-            setTabs([defaultTab]);
-            setActiveTabId(defaultTab.id);
-            setSyncStatus('local');
-          }
-        }
-      } catch (e) {
-        console.error("Erro crítico no carregamento:", e);
-        setSyncStatus('error');
-      } finally {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (!currentUser) {
+        setTabs([]);
         setLoading(false);
+      } else {
+        initData();
       }
-    };
-    init();
+    });
+    return () => unsubscribe();
   }, []);
 
-  // 2. Sincronização Automática com Debounce
-  useEffect(() => {
-    if (loading || tabs.length === 0) return;
+  const initData = async () => {
+    setLoading(true);
+    try {
+      const cloudData = await loadUserData();
+      if (cloudData && Array.isArray(cloudData) && cloudData.length > 0) {
+        setTabs(cloudData);
+        setActiveTabId(cloudData[0].id);
+        setSyncStatus('synced');
+      } else {
+        const defaultTab: Ledger = {
+          id: 'tab-' + Date.now(),
+          name: 'Planilha Principal',
+          month: new Date().getMonth() + 1,
+          year: new Date().getFullYear(),
+          items: []
+        };
+        setTabs([defaultTab]);
+        setActiveTabId(defaultTab.id);
+        setSyncStatus('local');
+      }
+    } catch (e) {
+      setSyncStatus('error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Salva localmente sempre para garantir persistência offline
-    localStorage.setItem('mf_tabs_v6', JSON.stringify(tabs));
+  useEffect(() => {
+    if (loading || tabs.length === 0 || !user) return;
     
     setSyncStatus('syncing');
     const timeout = setTimeout(async () => {
@@ -86,13 +83,12 @@ const App: React.FC = () => {
         await saveUserData(tabs);
         setSyncStatus('synced');
       } catch (e) {
-        // Se falhar a sincronização com a nuvem, mantemos como "local" ou "erro"
         setSyncStatus('error');
       }
     }, 2000);
 
     return () => clearTimeout(timeout);
-  }, [tabs, loading]);
+  }, [tabs, loading, user]);
 
   const activeTab = useMemo(() => {
     return tabs.find(t => t.id === activeTabId) || tabs[0];
@@ -162,26 +158,16 @@ const App: React.FC = () => {
   };
 
   const deleteTab = (idToDelete: string) => {
-    if (tabs.length <= 1) {
-      alert("Erro: Você não pode excluir a única planilha existente.");
-      return;
-    }
-
-    if (window.confirm("Deseja realmente apagar esta planilha? Esta ação não pode ser desfeita.")) {
+    if (tabs.length <= 1) return;
+    if (window.confirm("Deseja realmente apagar esta planilha?")) {
       const indexToDelete = tabs.findIndex(t => t.id === idToDelete);
       const newTabs = tabs.filter(t => t.id !== idToDelete);
-      
       if (idToDelete === activeTabId) {
         const nextIndex = indexToDelete === 0 ? 0 : indexToDelete - 1;
         setActiveTabId(newTabs[nextIndex].id);
       }
-      
       setTabs(newTabs);
     }
-  };
-
-  const updateTabName = (id: string, newName: string) => {
-    setTabs(prev => prev.map(t => t.id === id ? { ...t, name: newName } : t));
   };
 
   const totals = useMemo(() => {
@@ -201,7 +187,7 @@ const App: React.FC = () => {
       const result = await analyzeFinanceData(activeTab.items);
       setAnalysis(result);
     } catch (err) {
-      alert('Erro na análise. Verifique sua conexão com a internet.');
+      alert('Erro na análise.');
     } finally {
       setAnalysisLoading(false);
     }
@@ -209,10 +195,12 @@ const App: React.FC = () => {
 
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
+  if (!user) return <AuthForm />;
+
   if (loading) return (
     <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-900 text-white font-black text-[10px] tracking-[0.4em] uppercase">
       <RefreshCw className="animate-spin mb-4 text-blue-500" size={32} />
-      Iniciando Master Finance...
+      Sincronizando Master Finance...
     </div>
   );
 
@@ -225,12 +213,18 @@ const App: React.FC = () => {
         </div>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            {syncStatus === 'synced' && <div className="flex items-center gap-1.5 text-emerald-600" title="Dados salvos na nuvem"><CheckCircle2 size={14} /><span className="text-[9px] font-black uppercase tracking-widest hidden sm:block">Salvo</span></div>}
-            {syncStatus === 'syncing' && <div className="flex items-center gap-1.5 text-amber-500" title="Sincronizando com a nuvem"><RefreshCw size={14} className="animate-spin" /><span className="text-[9px] font-black uppercase tracking-widest hidden sm:block">Sincronizando</span></div>}
-            {syncStatus === 'error' && <div className="flex items-center gap-1.5 text-rose-500" title="Offline: Dados salvos apenas no navegador"><CloudOff size={14} /><span className="text-[9px] font-black uppercase tracking-widest hidden sm:block">Modo Local</span></div>}
-            {syncStatus === 'local' && <div className="flex items-center gap-1.5 text-slate-400" title="Salvando localmente"><CheckCircle2 size={14} /><span className="text-[9px] font-black uppercase tracking-widest hidden sm:block">Apenas Local</span></div>}
+            {syncStatus === 'synced' && <div className="flex items-center gap-1.5 text-emerald-600"><CheckCircle2 size={14} /><span className="text-[9px] font-black uppercase tracking-widest hidden sm:block">Cloud Sync</span></div>}
+            {syncStatus === 'syncing' && <div className="flex items-center gap-1.5 text-amber-500"><RefreshCw size={14} className="animate-spin" /><span className="text-[9px] font-black uppercase tracking-widest hidden sm:block">Saving...</span></div>}
           </div>
-          <UserCircle size={24} className="text-slate-300" />
+          <div className="flex items-center gap-3 pl-4 border-l border-slate-100">
+             <div className="hidden sm:block text-right">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Conta Ativa</p>
+                <p className="text-[10px] font-bold text-slate-600 max-w-[120px] truncate">{user.email}</p>
+             </div>
+             <button onClick={() => signOut(auth)} className="text-slate-300 hover:text-rose-500 transition-colors">
+               <LogOut size={20} />
+             </button>
+          </div>
         </div>
       </header>
 
@@ -245,23 +239,8 @@ const App: React.FC = () => {
                 activeTabId === tab.id ? 'border-slate-900 bg-slate-50/50 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600'
               }`}
             >
-              {activeTabId === tab.id ? (
-                <input 
-                  type="text" 
-                  value={tab.name} 
-                  onChange={(e) => updateTabName(tab.id, e.target.value)} 
-                  onClick={(e) => e.stopPropagation()} 
-                  className="text-[10px] font-black uppercase tracking-widest bg-transparent outline-none border-none p-0 focus:ring-0 w-24 sm:w-auto" 
-                  autoFocus 
-                />
-              ) : (
-                <span className="text-[10px] font-black uppercase tracking-widest">{tab.name}</span>
-              )}
-              
+              <span className="text-[10px] font-black uppercase tracking-widest">{tab.name}</span>
               <div className="flex items-center gap-2 ml-2">
-                {activeTabId === tab.id && (
-                  <button onClick={(e) => { e.stopPropagation(); duplicateActiveTab(); }} className="text-slate-300 hover:text-emerald-500 transition-colors"><Copy size={12} /></button>
-                )}
                 <button 
                   onClick={(e) => { e.stopPropagation(); deleteTab(tab.id); }} 
                   className={`text-slate-300 hover:text-rose-600 transition-colors ${activeTabId === tab.id ? 'block' : 'opacity-0 group-hover:opacity-100'}`}
