@@ -16,13 +16,13 @@ import {
   Settings,
   HelpCircle,
   ChevronRight,
-  Menu,
   ChevronLeft,
   Lock,
   Key,
-  X,
   Copy,
-  History
+  History,
+  Menu,
+  X
 } from 'lucide-react';
 import { FinanceItem, HealthStatus, FinanceAnalysis, Ledger } from './types';
 import ExpenseTable from './components/ExpenseTable';
@@ -38,9 +38,12 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysis, setAnalysis] = useState<FinanceAnalysis | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  // Sidebar states with responsive defaults
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    // Alterado para 'dark' como padrão
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'dark';
   });
 
@@ -277,9 +280,10 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
       
-      {/* SIDEBAR RETRÁTIL */}
+      {/* SIDEBAR RETRÁTIL - MELHORIA RESPONSIVA */}
       <aside 
-        className={`bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col fixed h-full z-50 transition-all duration-300 ${isSidebarOpen ? 'w-[280px]' : 'w-[80px]'}`}
+        className={`bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col fixed h-full z-50 transition-all duration-300 
+        ${isSidebarOpen ? 'w-[280px]' : 'w-0 lg:w-[80px] overflow-hidden lg:overflow-visible'}`}
       >
         <div className="p-6">
           <div className={`flex items-center gap-3 mb-10 transition-all ${!isSidebarOpen ? 'justify-center' : ''}`}>
@@ -314,16 +318,14 @@ const App: React.FC = () => {
           </nav>
         </div>
 
-        {/* BOTÃO TOGGLE SIDEBAR */}
         <button 
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute -right-3 top-20 w-6 h-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white shadow-sm z-50 transition-colors"
+          className="hidden lg:flex absolute -right-3 top-20 w-6 h-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white shadow-sm z-50 transition-colors"
         >
           {isSidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
         </button>
 
         <div className="mt-auto p-4 space-y-4 overflow-y-auto no-scrollbar max-h-[400px]">
-          {/* THEME SWITCHER ADAPTATIVO */}
           <div className={`bg-slate-50 dark:bg-slate-800/50 p-1.5 rounded-2xl flex items-center gap-1 ${!isSidebarOpen ? 'flex-col' : ''}`}>
             {isSidebarOpen ? (
               <>
@@ -344,14 +346,12 @@ const App: React.FC = () => {
               <button 
                 onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
                 className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-blue-500 transition-colors"
-                title="Trocar Tema"
               >
                 {theme === 'light' ? <Sun size={18} /> : <Moon size={18} />}
               </button>
             )}
           </div>
 
-          {/* PASSWORD CHANGE SECTION */}
           {isSidebarOpen && (
             <div className="space-y-2">
               <button 
@@ -393,13 +393,11 @@ const App: React.FC = () => {
                       />
                     </div>
                   </div>
-
                   {pwdMsg.text && (
                     <div className={`text-[8px] font-black uppercase p-2 rounded-lg text-center ${pwdMsg.type === 'error' ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-500'}`}>
                       {pwdMsg.text}
                     </div>
                   )}
-
                   <button 
                     onClick={handleUpdatePassword}
                     disabled={pwdLoading || !newPassword}
@@ -427,7 +425,6 @@ const App: React.FC = () => {
             <button 
                onClick={() => signOut(auth)} 
                className={`w-full flex items-center gap-2 py-3.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all ${!isSidebarOpen ? 'justify-center px-0' : 'justify-center'}`}
-               title="Sair"
             >
                <LogOut size={16} /> {isSidebarOpen && "Sair do Sistema"}
             </button>
@@ -435,52 +432,58 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* ÁREA DE CONTEÚDO PRINCIPAL - MARGEM ADAPTATIVA */}
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'ml-[280px]' : 'ml-[80px]'}`}>
-        <header className="h-20 flex items-center justify-between px-10 sticky top-0 z-40 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md">
+      {/* ÁREA DE CONTEÚDO PRINCIPAL - RESPONSIVIDADE DE MARGEM E PADDING */}
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'lg:ml-[280px]' : 'lg:ml-[80px]'} ml-0`}>
+        <header className="h-16 lg:h-20 flex items-center justify-between px-4 lg:px-10 sticky top-0 z-40 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md">
           <div className="flex items-center gap-4">
-             <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-100 dark:border-emerald-500/20">
+             {/* Botão Hambúrguer Mobile */}
+             <button 
+               onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+               className="lg:hidden p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+             >
+               {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+             </button>
+             
+             <div className="hidden sm:flex items-center gap-2 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-100 dark:border-emerald-500/20">
                 <ShieldCheck size={12} className="text-emerald-500" />
                 <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Sessão Segura</span>
              </div>
              {syncStatus === 'synced' ? (
                 <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                   <CheckCircle2 size={12} className="text-emerald-500" /> Cloud Ativa
+                   <CheckCircle2 size={12} className="text-emerald-500" /> <span className="hidden xs:inline">Cloud Ativa</span>
                 </div>
              ) : (
                 <div className="text-[9px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-2">
-                   <RefreshCw size={12} className="animate-spin" /> Sincronizando...
+                   <RefreshCw size={12} className="animate-spin" /> <span className="hidden xs:inline">Sincronizando...</span>
                 </div>
              )}
           </div>
         </header>
 
-        <main className="p-10 pt-4 space-y-8 max-w-6xl w-full mx-auto">
+        <main className="p-4 lg:p-10 pt-4 space-y-6 lg:space-y-8 max-w-6xl w-full mx-auto">
           
           <div className="flex items-center border-b border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar gap-2">
             {tabs.map((tab) => (
               <div 
                 key={tab.id}
                 onClick={() => setActiveTabId(tab.id)}
-                className={`flex items-center gap-3 px-6 py-4 border-b-2 transition-all cursor-pointer whitespace-nowrap group relative ${
+                className={`flex items-center gap-3 px-4 lg:px-6 py-4 border-b-2 transition-all cursor-pointer whitespace-nowrap group relative ${
                   activeTabId === tab.id 
                     ? 'border-slate-900 dark:border-blue-500 text-slate-900 dark:text-white' 
                     : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                 }`}
               >
                 <span className="text-[10px] font-black uppercase tracking-widest">{tab.name}</span>
-                <div className="flex items-center gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <div className="flex lg:opacity-0 lg:group-hover:opacity-100 items-center gap-1 ml-2 transition-opacity duration-200">
                   <button 
                     onClick={(e) => { e.stopPropagation(); duplicateTab(tab.id); }} 
                     className="text-slate-300 hover:text-blue-500 transition-colors p-1"
-                    title="Duplicar Planilha"
                   >
                     <Copy size={12} />
                   </button>
                   <button 
                     onClick={(e) => { e.stopPropagation(); deleteTab(tab.id); }} 
                     className={`text-slate-300 hover:text-rose-600 transition-colors p-1 ${tabs.length > 1 ? 'block' : 'hidden'}`}
-                    title="Excluir Planilha"
                   >
                     <Trash2 size={12} />
                   </button>
@@ -489,44 +492,44 @@ const App: React.FC = () => {
             ))}
             <button onClick={addNewTab} className="px-6 py-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all flex items-center gap-2 border-b-2 border-transparent">
               <Plus size={14} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Adicionar</span>
+              <span className="text-[10px] font-black uppercase tracking-widest">Novo</span>
             </button>
           </div>
 
-          <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
-              <div className="md:col-span-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase mb-3 block tracking-widest">Fluxo</label>
+          <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 lg:p-8 shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 lg:gap-6 items-end">
+              <div className="sm:col-span-1 md:col-span-2">
+                <label className="text-[9px] font-black text-slate-400 uppercase mb-2 block tracking-widest">Fluxo</label>
                 <select value={mCat} onChange={e => setMCat(e.target.value as any)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all">
                   <option value="house">🏠 Casa</option>
                   <option value="fixed">📅 Mensal Fixa</option>
-                  <option value="work">📥 Renda Trabalho</option>
+                  <option value="work">📥 Trabalho</option>
                   <option value="thirdParty">💳 Terceiros</option>
                 </select>
               </div>
-              <div className="md:col-span-4">
-                <label className="text-[9px] font-black text-slate-400 uppercase mb-3 block tracking-widest">Identificação</label>
-                <input type="text" placeholder="Ex: Aluguel do Mês" value={mDesc} onChange={e => setMDesc(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all" />
+              <div className="sm:col-span-1 md:col-span-4">
+                <label className="text-[9px] font-black text-slate-400 uppercase mb-2 block tracking-widest">Identificação</label>
+                <input type="text" placeholder="Ex: Aluguel" value={mDesc} onChange={e => setMDesc(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all" />
               </div>
-              <div className="md:col-span-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase mb-3 block tracking-widest">Montante</label>
+              <div className="sm:col-span-1 md:col-span-2">
+                <label className="text-[9px] font-black text-slate-400 uppercase mb-2 block tracking-widest">Montante</label>
                 <input type="text" placeholder="R$ 0,00" value={mVal} onChange={handleManualValueChange} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3.5 text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white transition-all" />
               </div>
-              <div className="md:col-span-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase mb-3 block tracking-widest flex items-center gap-2"><History size={12} /> Parcelas</label>
+              <div className="sm:col-span-1 md:col-span-2">
+                <label className="text-[9px] font-black text-slate-400 uppercase mb-2 block tracking-widest flex items-center gap-2"><History size={12} /> Parcelas</label>
                 <div className="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-3 text-xs transition-all focus-within:ring-2 focus-within:ring-blue-500/20">
                   <input type="number" placeholder="0" value={mInstPaid} onChange={e => setMInstPaid(e.target.value)} className="w-full text-right bg-transparent outline-none font-bold dark:text-white" />
                   <span className="px-3 font-black text-slate-300 dark:text-slate-600">/</span>
                   <input type="number" placeholder="0" value={mInstTotal} onChange={e => setMInstTotal(e.target.value)} className="w-full text-left bg-transparent outline-none font-bold dark:text-white" />
                 </div>
               </div>
-              <div className="md:col-span-2">
+              <div className="sm:col-span-2 md:col-span-2">
                 <button onClick={addManualItem} className="w-full bg-slate-900 dark:bg-blue-600 text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest active:scale-95 transition-all hover:bg-slate-800 dark:hover:bg-blue-500 shadow-lg shadow-slate-900/10 dark:shadow-blue-600/20">Registrar</button>
               </div>
             </div>
           </section>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
             <div className="lg:col-span-8 space-y-6">
               {activeTab && (
                 <>
@@ -560,7 +563,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="lg:col-span-4 space-y-6">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-sm sticky top-24">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 lg:p-8 shadow-sm lg:sticky lg:top-24">
                 <button 
                   onClick={runAnalysis} 
                   disabled={analysisLoading || !activeTab || activeTab.items.length === 0} 
@@ -611,6 +614,14 @@ const App: React.FC = () => {
           Master Finance Engine • 2026 • AI Powered
         </footer>
       </div>
+
+      {/* Overlay para fechar sidebar no mobile quando aberta */}
+      {isSidebarOpen && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)} 
+          className="lg:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-all duration-300"
+        />
+      )}
     </div>
   );
 };

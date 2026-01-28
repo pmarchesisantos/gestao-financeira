@@ -34,7 +34,7 @@ const ExpenseTable: React.FC<ExpenseTableProps> = ({
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden rounded-2xl">
-      <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-3.5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+      <div className="bg-slate-50 dark:bg-slate-800/50 px-4 lg:px-6 py-3.5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
         <h3 className="text-[10px] font-black text-slate-500 dark:text-slate-400 flex items-center gap-2 uppercase tracking-[0.2em]">
           <span>{icon}</span> {title}
         </h3>
@@ -42,14 +42,15 @@ const ExpenseTable: React.FC<ExpenseTableProps> = ({
           {fmt(total)}
         </span>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-[11px] font-mono border-collapse">
+      <div className="overflow-x-auto no-scrollbar">
+        {/* Adicionado min-width para garantir que as colunas não fiquem excessivamente espremidas em telas pequenas */}
+        <table className="w-full text-[11px] font-mono border-collapse min-w-[600px] lg:min-w-0">
           <thead>
             <tr className="bg-slate-50/30 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 uppercase tracking-tighter">
               {showStatus && <th className="px-4 py-3 text-center font-black border-r border-slate-100 dark:border-slate-800 w-28">Status</th>}
-              <th className="px-6 py-3 text-left font-black border-r border-slate-100 dark:border-slate-800">Descrição</th>
-              <th className="px-6 py-3 text-right font-black border-r border-slate-100 dark:border-slate-800 w-40">Valor</th>
-              <th className="px-6 py-3 text-center font-black w-24">Parcelas</th>
+              <th className="px-4 lg:px-6 py-3 text-left font-black border-r border-slate-100 dark:border-slate-800">Descrição</th>
+              <th className="px-4 lg:px-6 py-3 text-right font-black border-r border-slate-100 dark:border-slate-800 w-36 lg:w-40">Valor</th>
+              <th className="px-4 lg:px-6 py-3 text-center font-black w-24">Parcelas</th>
               <th className="px-4 py-3 w-12"></th>
             </tr>
           </thead>
@@ -75,20 +76,20 @@ const ExpenseTable: React.FC<ExpenseTableProps> = ({
                       </div>
                     </td>
                   )}
-                  <td className="px-2 py-2 border-r border-slate-100 dark:border-slate-800">
+                  <td className="px-1 lg:px-2 py-2 border-r border-slate-100 dark:border-slate-800">
                     <input 
                       type="text"
                       value={item.description}
                       onChange={(e) => onUpdate(item.id, { description: e.target.value })}
-                      className={`w-full bg-transparent px-4 py-2 outline-none text-slate-700 dark:text-slate-200 focus:bg-white dark:focus:bg-slate-800 rounded-lg transition-all ${item.status === 'paid' ? 'line-through text-slate-400' : ''}`}
+                      className={`w-full bg-transparent px-3 lg:px-4 py-2 outline-none text-slate-700 dark:text-slate-200 focus:bg-white dark:focus:bg-slate-800 rounded-lg transition-all ${item.status === 'paid' ? 'line-through text-slate-400' : ''}`}
                     />
                   </td>
-                  <td className="px-2 py-2 text-right border-r border-slate-100 dark:border-slate-800">
+                  <td className="px-1 lg:px-2 py-2 text-right border-r border-slate-100 dark:border-slate-800">
                     <input 
                       type="text"
                       value={fmt(item.value)}
                       onChange={(e) => handleValueChange(item.id, e.target.value)}
-                      className={`w-full bg-transparent text-right px-4 py-2 font-bold outline-none focus:bg-white dark:focus:bg-slate-800 rounded-lg transition-all ${
+                      className={`w-full bg-transparent text-right px-3 lg:px-4 py-2 font-bold outline-none focus:bg-white dark:focus:bg-slate-800 rounded-lg transition-all ${
                         item.status === 'paid' 
                           ? 'text-slate-400' 
                           : type === 'expense' ? 'text-rose-500' : type === 'income' ? 'text-emerald-600' : 'text-blue-600 dark:text-blue-400'

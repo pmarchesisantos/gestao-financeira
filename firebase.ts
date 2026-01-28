@@ -1,23 +1,8 @@
-
 // Modular SDK v9+ imports for Firebase
 import { initializeApp } from "firebase/app";
-// Import auth functions directly from the modular SDK entry point
-// Consolidated imports into single statements to ensure clean module resolution
-import { 
-  getAuth, 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  updatePassword 
-} from "firebase/auth";
-import { 
-  getFirestore, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  enableIndexedDbPersistence 
-} from "firebase/firestore";
+// Standard modular SDK imports for Auth and Firestore
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updatePassword } from "firebase/auth";
+import { getFirestore, doc, setDoc, getDoc, enableIndexedDbPersistence } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBEpCRgz97nmq8zM4MEEYWXxePhXXUitEs",
