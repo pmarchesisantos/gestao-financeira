@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Member, Ledger, FinanceItem, FinanceAnalysis, HealthStatus } from '../types';
+// Fixed: Member is now correctly exported from types.ts
+import { Member, Ledger, FinanceItem, FinanceAnalysis, HealthStatus, Category } from '../types';
 import { Plus, Copy, Trash2, Calculator, History, CheckCircle, Clock, Tag, DollarSign, Type as TypeIcon, Sparkles, AlertTriangle } from 'lucide-react';
 import ExpenseTable from './ExpenseTable';
 import { analyzeFinanceData, parseNaturalLanguage } from '../services/geminiService';
@@ -10,9 +11,12 @@ interface MemberViewProps {
   onUpdateLedgers: (ledgers: Ledger[]) => void;
   filter: { month: number; year: number };
   onRemove: () => void;
+  // Added missing props required for Gemini service calls and dynamic UI
+  categories: Category[];
+  maxCompromise: number;
 }
 
-const MemberView: React.FC<MemberViewProps> = ({ member, onUpdateLedgers, filter, onRemove }) => {
+const MemberView: React.FC<MemberViewProps> = ({ member, onUpdateLedgers, filter, onRemove, categories, maxCompromise }) => {
   // Garantir que a planilha ativa corresponda ao filtro global se possível, ou seja a primeira
   const filteredLedgers = useMemo(() => {
     return member.ledgers.filter(l => l.month === filter.month && l.year === filter.year);
@@ -33,10 +37,10 @@ const MemberView: React.FC<MemberViewProps> = ({ member, onUpdateLedgers, filter
   const [parsing, setParsing] = useState(false);
   const [nlpText, setNlpText] = useState('');
 
-  // Form States
+  // Form States - Updated to support dynamic categories
   const [mDesc, setMDesc] = useState('');
   const [mVal, setMVal] = useState('');
-  const [mCat, setMCat] = useState<'house' | 'fixed' | 'work' | 'thirdParty'>('house');
+  const [mCat, setMCat] = useState<string>(categories[0]?.id || 'house');
   const [mInstPaid, setMInstPaid] = useState('');
   const [mInstTotal, setMInstTotal] = useState('');
 
@@ -100,7 +104,8 @@ const MemberView: React.FC<MemberViewProps> = ({ member, onUpdateLedgers, filter
     if (items.length === 0) return;
     setLoading(true);
     try {
-      const result = await analyzeFinanceData(items);
+      // Fixed: Added categories and maxCompromise arguments as required by the service
+      const result = await analyzeFinanceData(items, categories, maxCompromise);
       setAnalysis(result);
     } catch (err) {
       alert('Erro na análise Master Finance. Verifique sua conexão.');
@@ -113,15 +118,16 @@ const MemberView: React.FC<MemberViewProps> = ({ member, onUpdateLedgers, filter
     if (!nlpText.trim()) return;
     setParsing(true);
     try {
-      const parsedItems = await parseNaturalLanguage(nlpText);
+      // Fixed: Added categories argument as required by the service
+      const parsedItems = await parseNaturalLanguage(nlpText, categories);
       const newItems: FinanceItem[] = parsedItems.map(item => ({
         id: Math.random().toString(36).substr(2, 9),
         description: item.description || 'Novo Item',
         value: item.value || 0,
-        category: item.category as any || 'house',
+        category: item.category || categories[0]?.id || 'house',
         paidInstallments: item.paidInstallments,
         totalInstallments: item.totalInstallments,
-        status: 'pending'
+        status: 'pending' as const
       }));
       
       const newLedgers = member.ledgers.map(l => 
@@ -137,11 +143,12 @@ const MemberView: React.FC<MemberViewProps> = ({ member, onUpdateLedgers, filter
   };
 
   const summaryData = useMemo(() => {
-    const expenses = items.filter(i => i.category === 'house' || i.category === 'fixed');
+    const expenseCats = categories.filter(c => c.type === 'expense').map(c => c.id);
+    const expenses = items.filter(i => expenseCats.includes(i.category));
     const totalPaid = expenses.filter(i => i.status === 'paid').reduce((a, b) => a + b.value, 0);
     const totalPending = expenses.filter(i => i.status === 'pending').reduce((a, b) => a + b.value, 0);
     return { totalPaid, totalPending, paidItems: expenses.filter(i => i.status === 'paid') };
-  }, [items]);
+  }, [items, categories]);
 
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -192,11 +199,10 @@ const MemberView: React.FC<MemberViewProps> = ({ member, onUpdateLedgers, filter
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-end">
           <div className="md:col-span-2">
             <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase mb-2 tracking-wide"><Tag size={12} /> Categoria</label>
-            <select value={mCat} onChange={e => setMCat(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all cursor-pointer">
-              <option value="house">🏠 Casa</option>
-              <option value="fixed">📅 Mensal Fixa</option>
-              <option value="work">📥 Trabalho</option>
-              <option value="thirdParty">💳 Terceiros</option>
+            <select value={mCat} onChange={e => setMCat(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all cursor-pointer">
+              {categories.map(c => (
+                <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+              ))}
             </select>
           </div>
           <div className="md:col-span-4">
@@ -223,10 +229,18 @@ const MemberView: React.FC<MemberViewProps> = ({ member, onUpdateLedgers, filter
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         <div className="lg:col-span-8 space-y-8">
-          <ExpenseTable title="🏠 Contas da Casa" icon="" type="expense" showStatus={true} items={items.filter(i => i.category === 'house')} onRemove={removeItem} onUpdate={updateItem} />
-          <ExpenseTable title="📅 Contas Mensais" icon="" type="expense" showStatus={true} items={items.filter(i => i.category === 'fixed')} onRemove={removeItem} onUpdate={updateItem} />
-          <ExpenseTable title="📥 Entradas" icon="" type="income" items={items.filter(i => i.category === 'work')} onRemove={removeItem} onUpdate={updateItem} />
-          <ExpenseTable title="💳 Terceiros" icon="" type="neutral" items={items.filter(i => i.category === 'thirdParty')} onRemove={removeItem} onUpdate={updateItem} />
+          {categories.map(cat => (
+            <ExpenseTable 
+              key={cat.id} 
+              title={cat.name} 
+              icon={cat.icon} 
+              type={cat.type} 
+              showStatus={cat.type === 'expense'} 
+              items={items.filter(i => i.category === cat.id)} 
+              onRemove={removeItem} 
+              onUpdate={updateItem} 
+            />
+          ))}
 
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             <div className="bg-slate-900 text-white px-8 py-5 flex items-center justify-between">
@@ -287,8 +301,8 @@ const MemberView: React.FC<MemberViewProps> = ({ member, onUpdateLedgers, filter
                     <span className={analysis.summary.remainingBalance >= 0 ? 'text-blue-600 font-mono' : 'text-rose-600 font-mono'}>{fmt(analysis.summary.remainingBalance)}</span>
                   </div>
                 </div>
-                {analysis.summary.alertMessage && (
-                  <div className="mt-8 p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-700 text-[11px] font-bold flex gap-3 items-start leading-relaxed">
+                {analysis.summary.alertMessage && analysis.summary.alertMessage !== 'null' && (
+                  <div className="mt-8 p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-700 text-[11px] font-bold flex gap-3 items-start leading-relaxed animate-in fade-in duration-300">
                     <AlertTriangle size={16} className="shrink-0 mt-0.5" /> 
                     {analysis.summary.alertMessage.replace(/\*\*/g, '')}
                   </div>

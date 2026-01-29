@@ -1,86 +1,46 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { FinanceAnalysis, FinanceItem } from "../types";
+import { FinanceAnalysis, FinanceItem, Category } from "../types";
 
-const SYSTEM_INSTRUCTION_ANALYSIS = `
+const generateSystemInstruction = (maxCompromise: number) => `
 Você é o "Master Finance", assistente de gestão de fluxo de caixa.
 Sua função é analisar dados financeiros e gerar um Resumo Executivo e Status de Saúde.
 
 LOGICA DE CÁLCULO RIGOROSA:
-1. Gasto Total = Soma de 'house' (Casa) + 'fixed' (Mensais).
-2. Entradas (Trabalho) = Categoria 'work'. Representa o salário líquido.
-3. Entradas (Terceiros) = Categoria 'thirdParty'. Tratadas como compensação. NÃO somar como renda disponível.
+1. Gasto Total = Soma de todos os itens de saída (expenses).
+2. Entradas (Trabalho) = Itens de entrada (income). Representa o salário líquido.
+3. Entradas (Terceiros) = Itens neutros (neutral). Tratadas como compensação. NÃO somar como renda disponível.
 4. Percentual de Comprometimento = Gasto Total / Entradas (Trabalho). 
-   IMPORTANTE: Retorne este valor SEMPRE como um decimal (ex: 0.7014 para 70.14% ou 5.0 para 500%).
-5. ALERTA DE RISCO: Se Gasto Total > 80% das Entradas (Trabalho), o campo 'alertMessage' DEVE conter o aviso de risco.
+   IMPORTANTE: Retorne este valor SEMPRE como um decimal (ex: 0.7014 para 70.14%).
+5. LIMITE DE SEGURANÇA: O usuário definiu que o limite ideal de gastos é ${(maxCompromise * 100).toFixed(0)}% da renda.
+6. ALERTA DE RISCO: Se o comprometimento for maior que ${(maxCompromise * 100).toFixed(0)}%, o campo 'alertMessage' DEVE conter o aviso de risco. Se for menor, o campo deve ser null.
 
 STATUS:
-- Saudável: Comprometimento <= 0.5
-- Atenção: Comprometimento > 0.5 e <= 0.8
-- Crítico: Comprometimento > 0.8
+- Saudável: Comprometimento <= ${(maxCompromise * 0.7).toFixed(2)}
+- Atenção: Comprometimento > ${(maxCompromise * 0.7).toFixed(2)} e <= ${maxCompromise.toFixed(2)}
+- Crítico: Comprometimento > ${maxCompromise.toFixed(2)}
 
 TOM DE VOZ: Profissional, direto, objetivo e levemente analítico.
 RETORNE APENAS JSON.
 `;
 
-const SYSTEM_INSTRUCTION_PARSER = `
-Você é o processador de dados do "Master Finance".
-Extraia itens financeiros de texto natural e categorize-os em: house, fixed, work, thirdParty.
-`;
-
-export async function parseNaturalLanguage(text: string): Promise<Partial<FinanceItem>[]> {
-  // Create a new GoogleGenAI instance right before making an API call to ensure it uses the correct context.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Extraia os dados deste texto: "${text}"`,
-    config: {
-      systemInstruction: SYSTEM_INSTRUCTION_PARSER,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            description: { type: Type.STRING },
-            value: { type: Type.NUMBER },
-            category: { 
-              type: Type.STRING, 
-              description: "The category of the expense: 'house', 'fixed', 'work', or 'thirdParty'." 
-            },
-            paidInstallments: { 
-              type: Type.NUMBER, 
-              description: "Number of installments already paid (optional)." 
-            },
-            totalInstallments: { 
-              type: Type.NUMBER, 
-              description: "Total number of installments (optional)." 
-            },
-          },
-          required: ["description", "value", "category"],
-          propertyOrdering: ["description", "value", "category", "paidInstallments", "totalInstallments"]
-        }
-      }
-    }
-  });
-  return JSON.parse(response.text.trim());
-}
-
-export async function analyzeFinanceData(items: FinanceItem[]): Promise<FinanceAnalysis> {
-  // Create a new GoogleGenAI instance right before making an API call to ensure it uses the correct context.
+export async function analyzeFinanceData(items: FinanceItem[], categories: Category[], maxCompromise: number): Promise<FinanceAnalysis> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const income = items.filter(i => i.category === 'work').reduce((a, b) => a + b.value, 0);
-  const expenses = items.filter(i => i.category === 'house' || i.category === 'fixed').reduce((a, b) => a + b.value, 0);
+  const incomeCats = categories.filter(c => c.type === 'income').map(c => c.id);
+  const expenseCats = categories.filter(c => c.type === 'expense').map(c => c.id);
+
+  const income = items.filter(i => incomeCats.includes(i.category)).reduce((a, b) => a + b.value, 0);
+  const expenses = items.filter(i => expenseCats.includes(i.category)).reduce((a, b) => a + b.value, 0);
   const expectedRatio = income > 0 ? expenses / income : (expenses > 0 ? 1 : 0);
 
-  const prompt = `Analise estes dados: ${JSON.stringify(items)}. O Gasto Total é ${expenses} e a Renda Trabalho é ${income}. Calcule o comprometimento exato.`;
+  const prompt = `Analise estes dados: ${JSON.stringify(items)}. O Gasto Total é ${expenses} e a Renda é ${income}. Calcule o comprometimento exato baseado no limite de ${maxCompromise}.`;
   
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
     contents: prompt,
     config: {
-      systemInstruction: SYSTEM_INSTRUCTION_ANALYSIS,
+      systemInstruction: generateSystemInstruction(maxCompromise),
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -93,10 +53,9 @@ export async function analyzeFinanceData(items: FinanceItem[]): Promise<FinanceA
               remainingBalance: { type: Type.NUMBER },
               compromisePercentage: { type: Type.NUMBER, description: "Ratio decimal (ex: 0.75 for 75%)" },
               status: { type: Type.STRING },
-              alertMessage: { type: Type.STRING, description: "Risk warning message if any, or an empty string." }
+              alertMessage: { type: Type.STRING, nullable: true }
             },
             required: ["totalWorkIncome", "totalExpenses", "remainingBalance", "compromisePercentage", "status"],
-            propertyOrdering: ["totalWorkIncome", "totalExpenses", "remainingBalance", "compromisePercentage", "status", "alertMessage"]
           }
         },
         required: ["summary"]
@@ -106,20 +65,20 @@ export async function analyzeFinanceData(items: FinanceItem[]): Promise<FinanceA
 
   const data = JSON.parse(response.text.trim());
   
-  // Normalização Inteligente de Escala:
-  // Se a IA retornar 70.14 para um ratio de 0.7014, nós detectamos a diferença de 100x
+  // Sanitização rigorosa para evitar a string "null"
+  if (data.summary.alertMessage === "null" || data.summary.alertMessage === "") {
+    data.summary.alertMessage = null;
+  }
+
   const aiVal = data.summary.compromisePercentage;
   
   if (expectedRatio > 0) {
     const diffToRatio = Math.abs(aiVal - expectedRatio);
     const diffToPercentage = Math.abs((aiVal / 100) - expectedRatio);
-    
-    // Se dividir por 100 aproxima o valor do ratio esperado muito mais do que o valor original, corrigimos.
     if (diffToPercentage < diffToRatio && aiVal > 1) {
       data.summary.compromisePercentage = aiVal / 100;
     }
   } else if (aiVal > 1 && expenses <= income) {
-      // Fallback básico para segurança
       data.summary.compromisePercentage = aiVal / 100;
   }
 
@@ -127,4 +86,33 @@ export async function analyzeFinanceData(items: FinanceItem[]): Promise<FinanceA
     ...data,
     analysisDate: new Date().toLocaleDateString('pt-BR')
   };
+}
+
+export async function parseNaturalLanguage(text: string, categories: Category[]): Promise<Partial<FinanceItem>[]> {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const categoryInstructions = categories.map(c => `${c.id} (${c.name})`).join(", ");
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Extraia os dados deste texto: "${text}". Categorias permitidas: ${categoryInstructions}`,
+    config: {
+      systemInstruction: "Extraia itens financeiros e categorize-os corretamente baseado nas categorias fornecidas.",
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            description: { type: Type.STRING },
+            value: { type: Type.NUMBER },
+            category: { type: Type.STRING },
+            paidInstallments: { type: Type.NUMBER },
+            totalInstallments: { type: Type.NUMBER },
+          },
+          required: ["description", "value", "category"]
+        }
+      }
+    }
+  });
+  return JSON.parse(response.text.trim());
 }

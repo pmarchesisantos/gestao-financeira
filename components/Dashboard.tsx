@@ -1,5 +1,6 @@
 
 import React, { useMemo } from 'react';
+// Fixed: Member is now correctly exported from types.ts
 import { Member, HealthStatus } from '../types';
 import { Wallet, TrendingUp, AlertCircle, CheckCircle, Calculator, UserPlus } from 'lucide-react';
 

@@ -1,9 +1,21 @@
 
+export interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  type: 'income' | 'expense' | 'neutral';
+}
+
+export interface FinanceSettings {
+  maxCompromisePercentage: number;
+  categories: Category[];
+}
+
 export interface FinanceItem {
   id: string;
   description: string;
   value: number;
-  category: 'house' | 'fixed' | 'work' | 'thirdParty';
+  category: string; // Dinâmico agora
   paidInstallments?: number;
   totalInstallments?: number;
   status: 'pending' | 'paid';
@@ -17,6 +29,7 @@ export interface Ledger {
   items: FinanceItem[];
 }
 
+// Added Member interface
 export interface Member {
   id: string;
   name: string;

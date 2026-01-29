@@ -1,8 +1,8 @@
 
 // Modular SDK v9+ imports for Firebase
 import { initializeApp } from "firebase/app";
-// Fix: Consolidating Firebase Auth imports into a single line to improve module resolution in certain environments.
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updatePassword } from "firebase/auth";
+// Use namespace import to fix "no exported member" errors in certain environments where named exports fail to resolve
+import * as authExports from "firebase/auth";
 import { 
   getFirestore, 
   doc, 
@@ -10,6 +10,16 @@ import {
   getDoc, 
   enableIndexedDbPersistence 
 } from "firebase/firestore";
+
+// Destructure the required auth members from the namespace import to ensure they are correctly resolved
+const { 
+  getAuth, 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  updatePassword 
+} = authExports;
 
 const firebaseConfig = {
   apiKey: "AIzaSyBEpCRgz97nmq8zM4MEEYWXxePhXXUitEs",
@@ -21,52 +31,42 @@ const firebaseConfig = {
   measurementId: "G-JEK5QBDXS5"
 };
 
-// Initialize Firebase services
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Enable offline persistence for Firestore using the standard modular SDK v9 approach
+// Enable persistence for offline support
 try {
-  enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn("Persistência offline: falhou (múltiplas abas abertas).");
-    } else if (err.code === 'unimplemented') {
-      console.warn("Persistência offline: não suportada neste navegador.");
-    }
+  enableIndexedDbPersistence(db).catch(() => {
+    // Silently fail if persistence cannot be enabled (e.g., multiple tabs open)
   });
 } catch (e) {
-  console.warn("Erro ao configurar persistência do Firebase.");
+  // Catch any synchronous errors
 }
 
-// Utility to ensure data is serializable for Firestore
 const sanitizeForFirestore = (data: any): any => {
   return JSON.parse(JSON.stringify(data, (key, value) => 
     value === undefined ? null : value
   ));
 };
 
-// Save user financial data to Firestore
-export const saveUserData = async (tabs: any[]) => {
+export const saveUserData = async (tabs: any[], settings?: any) => {
   const user = auth.currentUser;
   if (!user) return;
 
   try {
     const userDoc = doc(db, "users", user.uid);
-    const sanitizedTabs = sanitizeForFirestore(tabs);
-    
     await setDoc(userDoc, {
-      tabs: sanitizedTabs,
+      tabs: sanitizeForFirestore(tabs),
+      settings: sanitizeForFirestore(settings),
       updatedAt: new Date().toISOString()
     }, { merge: true });
     return true;
   } catch (e: any) {
-    console.error("Erro ao salvar no Firestore:", e.message);
     throw e;
   }
 };
 
-// Retrieve user financial data from Firestore
 export const loadUserData = async () => {
   const user = auth.currentUser;
   if (!user) return null;
@@ -75,16 +75,14 @@ export const loadUserData = async () => {
     const userDoc = doc(db, "users", user.uid);
     const docSnap = await getDoc(userDoc);
     if (docSnap.exists()) {
-      return docSnap.data().tabs;
+      return docSnap.data();
     }
     return null;
   } catch (e: any) {
-    console.warn("Firestore inacessível. Usando dados locais.");
     return null;
   }
 };
 
-// Re-export auth members to ensure they are available to components using the modular pattern
 export { 
   db, 
   auth, 
