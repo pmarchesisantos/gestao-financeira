@@ -13,7 +13,7 @@ LOGICA DE CÁLCULO RIGOROSA:
 4. Percentual de Comprometimento = Gasto Total / Entradas (Trabalho). 
    IMPORTANTE: Retorne este valor SEMPRE como um decimal (ex: 0.7014 para 70.14%).
 5. LIMITE DE SEGURANÇA: O usuário definiu que o limite ideal de gastos é ${(maxCompromise * 100).toFixed(0)}% da renda.
-6. ALERTA DE RISCO: Se o comprometimento for maior que ${(maxCompromise * 100).toFixed(0)}%, o campo 'alertMessage' DEVE conter o aviso de risco. Se for menor, o campo deve ser null.
+6. ALERTA DE RISCO: Se o comprometimento for maior que ${(maxCompromise * 100).toFixed(0)}%, o campo 'alertMessage' DEVE conter o aviso de risco. Se for menor, o campo deve ser estritamente null.
 
 STATUS:
 - Saudável: Comprometimento <= ${(maxCompromise * 0.7).toFixed(2)}
@@ -25,6 +25,7 @@ RETORNE APENAS JSON.
 `;
 
 export async function analyzeFinanceData(items: FinanceItem[], categories: Category[], maxCompromise: number): Promise<FinanceAnalysis> {
+  // Always initialize GoogleGenAI directly using the API_KEY from environment variables
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const incomeCats = categories.filter(c => c.type === 'income').map(c => c.id);
@@ -53,7 +54,7 @@ export async function analyzeFinanceData(items: FinanceItem[], categories: Categ
               remainingBalance: { type: Type.NUMBER },
               compromisePercentage: { type: Type.NUMBER, description: "Ratio decimal (ex: 0.75 for 75%)" },
               status: { type: Type.STRING },
-              alertMessage: { type: Type.STRING, nullable: true }
+              alertMessage: { type: Type.STRING }
             },
             required: ["totalWorkIncome", "totalExpenses", "remainingBalance", "compromisePercentage", "status"],
           }
@@ -63,10 +64,12 @@ export async function analyzeFinanceData(items: FinanceItem[], categories: Categ
     }
   });
 
+  // Directly access the text property as per guidelines (do not use .text())
   const data = JSON.parse(response.text.trim());
   
-  // Sanitização rigorosa para evitar a string "null"
-  if (data.summary.alertMessage === "null" || data.summary.alertMessage === "") {
+  // Sanitização rigorosa de strings de alerta
+  const alert = data.summary.alertMessage;
+  if (!alert || String(alert).toLowerCase().trim() === 'null' || String(alert).trim() === '') {
     data.summary.alertMessage = null;
   }
 
@@ -89,6 +92,7 @@ export async function analyzeFinanceData(items: FinanceItem[], categories: Categ
 }
 
 export async function parseNaturalLanguage(text: string, categories: Category[]): Promise<Partial<FinanceItem>[]> {
+  // Always initialize GoogleGenAI directly using the API_KEY from environment variables
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const categoryInstructions = categories.map(c => `${c.id} (${c.name})`).join(", ");
 
@@ -114,5 +118,6 @@ export async function parseNaturalLanguage(text: string, categories: Category[])
       }
     }
   });
+  // Directly access the text property as per guidelines (do not use .text())
   return JSON.parse(response.text.trim());
 }

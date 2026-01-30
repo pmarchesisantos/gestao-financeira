@@ -1,8 +1,6 @@
 
-// Modular SDK v9+ imports for Firebase
 import { initializeApp } from "firebase/app";
-// Use namespace import to fix "no exported member" errors in certain environments where named exports fail to resolve
-import * as authExports from "firebase/auth";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updatePassword } from "firebase/auth";
 import { 
   getFirestore, 
   doc, 
@@ -10,16 +8,6 @@ import {
   getDoc, 
   enableIndexedDbPersistence 
 } from "firebase/firestore";
-
-// Destructure the required auth members from the namespace import to ensure they are correctly resolved
-const { 
-  getAuth, 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  updatePassword 
-} = authExports;
 
 const firebaseConfig = {
   apiKey: "AIzaSyBEpCRgz97nmq8zM4MEEYWXxePhXXUitEs",
@@ -35,14 +23,9 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Enable persistence for offline support
 try {
-  enableIndexedDbPersistence(db).catch(() => {
-    // Silently fail if persistence cannot be enabled (e.g., multiple tabs open)
-  });
-} catch (e) {
-  // Catch any synchronous errors
-}
+  enableIndexedDbPersistence(db).catch(() => {});
+} catch (e) {}
 
 const sanitizeForFirestore = (data: any): any => {
   return JSON.parse(JSON.stringify(data, (key, value) => 
@@ -53,7 +36,6 @@ const sanitizeForFirestore = (data: any): any => {
 export const saveUserData = async (tabs: any[], settings?: any) => {
   const user = auth.currentUser;
   if (!user) return;
-
   try {
     const userDoc = doc(db, "users", user.uid);
     await setDoc(userDoc, {
@@ -70,7 +52,6 @@ export const saveUserData = async (tabs: any[], settings?: any) => {
 export const loadUserData = async () => {
   const user = auth.currentUser;
   if (!user) return null;
-
   try {
     const userDoc = doc(db, "users", user.uid);
     const docSnap = await getDoc(userDoc);
