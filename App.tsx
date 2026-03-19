@@ -77,7 +77,9 @@ const App: React.FC = () => {
       if (data) {
         if (data.tabs && data.tabs.length > 0) {
           setTabs(data.tabs);
-          setActiveTabId(data.tabs[0].id);
+          // Carregar a planilha mais recente (maior ID/timestamp)
+          const sortedTabs = [...data.tabs].sort((a, b) => b.id.localeCompare(a.id));
+          setActiveTabId(sortedTabs[0].id);
         }
         if (data.settings) {
           setSettings(data.settings);
@@ -146,15 +148,43 @@ const App: React.FC = () => {
   const duplicateTab = (idToDuplicate: string) => {
     const tabToCopy = tabs.find(t => t.id === idToDuplicate);
     if (!tabToCopy) return;
-    const newTab: Ledger = { ...tabToCopy, id: 'tab-' + Date.now(), name: `${tabToCopy.name} (Cópia)`, items: tabToCopy.items.map(i => ({ ...i, id: 'item-' + Math.random().toString(36).substr(2, 9) })) };
-    setTabs(prev => [...prev, newTab]); setActiveTabId(newTab.id);
+    
+    const newItems: FinanceItem[] = tabToCopy.items
+      .filter(i => {
+        // Se for parcelado e já chegou no total, não duplica para a próxima planilha
+        if (i.paidInstallments !== undefined && i.totalInstallments !== undefined) {
+          return i.paidInstallments < i.totalInstallments;
+        }
+        return true;
+      })
+      .map(i => {
+        const isInstallment = i.paidInstallments !== undefined && i.totalInstallments !== undefined;
+        return { 
+          ...i, 
+          id: 'item-' + Math.random().toString(36).substr(2, 9),
+          status: 'pending',
+          paidInstallments: isInstallment ? (i.paidInstallments! + 1) : i.paidInstallments
+        };
+      });
+
+    const newTab: Ledger = { 
+      ...tabToCopy, 
+      id: 'tab-' + Date.now(), 
+      name: `${tabToCopy.name} (Cópia)`, 
+      items: newItems
+    };
+    setTabs(prev => [...prev, newTab]); 
+    setActiveTabId(newTab.id);
   };
 
   const deleteTab = (idToDelete: string) => {
     if (tabs.length <= 1) return alert("Não é possível excluir a única planilha.");
     if (window.confirm("Deseja realmente excluir permanentemente esta planilha?")) {
       const newTabs = tabs.filter(t => t.id !== idToDelete);
-      if (idToDelete === activeTabId) setActiveTabId(newTabs[0].id);
+      if (idToDelete === activeTabId) {
+        const sortedRemaining = [...newTabs].sort((a, b) => b.id.localeCompare(a.id));
+        setActiveTabId(sortedRemaining[0].id);
+      }
       setTabs(newTabs);
     }
   };
@@ -459,7 +489,7 @@ const App: React.FC = () => {
                         title={cat.name} 
                         icon={cat.icon} 
                         type={cat.type === 'income' ? 'income' : cat.type === 'expense' ? 'expense' : 'neutral'} 
-                        showStatus={cat.type === 'expense'} 
+                        showStatus={true} 
                         items={catItems} 
                         onRemove={removeItem} 
                         onUpdate={updateItem} 
