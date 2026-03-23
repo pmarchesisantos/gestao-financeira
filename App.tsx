@@ -140,6 +140,11 @@ const App: React.FC = () => {
     setTabs(prev => [...prev, newTab]); setActiveTabId(newTab.id);
   };
 
+  const renameTab = (id: string, currentName: string) => {
+    const newName = prompt("Renomear planilha para:", currentName);
+    if (newName?.trim()) setTabs(prev => prev.map(t => t.id === id ? { ...t, name: newName.trim() } : t));
+  };
+
   const duplicateTab = (idToDuplicate: string) => {
     const tabToCopy = tabs.find(t => t.id === idToDuplicate);
     if (!tabToCopy) return;
@@ -433,6 +438,7 @@ const App: React.FC = () => {
                   >
                     <span className="text-[10px] font-black uppercase tracking-widest">{tab.name}</span>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={(e) => { e.stopPropagation(); renameTab(tab.id, tab.name); }} className="p-1 hover:text-blue-500"><Edit2 size={12} /></button>
                       <button onClick={(e) => { e.stopPropagation(); duplicateTab(tab.id); }} className="p-1 hover:text-blue-500"><Copy size={12} /></button>
                       {tabs.length > 1 && <button onClick={(e) => { e.stopPropagation(); deleteTab(tab.id); }} className="p-1 hover:text-rose-600"><Trash2 size={12} /></button>}
                     </div>
