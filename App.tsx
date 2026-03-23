@@ -158,17 +158,7 @@ const App: React.FC = () => {
       };
     });
 
-    // Calcular próximo mês/ano
-    let nextMonth = tabToCopy.month + 1;
-    let nextYear = tabToCopy.year;
-    if (nextMonth > 12) {
-      nextMonth = 1;
-      nextYear += 1;
-    }
-
-    const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-    const currentMonthName = monthNames[tabToCopy.month - 1];
-    const newName = `${currentMonthName} (copia)`;
+    const newName = `${tabToCopy.name} (copia)`;
 
     const newTab: Ledger = { 
       ...tabToCopy, 
