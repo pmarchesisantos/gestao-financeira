@@ -140,39 +140,44 @@ const App: React.FC = () => {
     setTabs(prev => [...prev, newTab]); setActiveTabId(newTab.id);
   };
 
-  const renameTab = (id: string, currentName: string) => {
-    const newName = prompt("Renomear planilha para:", currentName);
-    if (newName?.trim()) setTabs(prev => prev.map(t => t.id === id ? { ...t, name: newName.trim() } : t));
-  };
-
   const duplicateTab = (idToDuplicate: string) => {
     const tabToCopy = tabs.find(t => t.id === idToDuplicate);
     if (!tabToCopy) return;
     
-    const newItems: FinanceItem[] = tabToCopy.items
-      .filter(i => {
-        // Se for parcelado e já chegou no total, não duplica para a próxima planilha
-        if (i.paidInstallments !== undefined && i.totalInstallments !== undefined) {
-          return i.paidInstallments < i.totalInstallments;
-        }
-        return true;
-      })
-      .map(i => {
-        const isInstallment = i.paidInstallments !== undefined && i.totalInstallments !== undefined;
-        return { 
-          ...i, 
-          id: 'item-' + Math.random().toString(36).substr(2, 9),
-          status: 'pending',
-          paidInstallments: isInstallment ? (i.paidInstallments! + 1) : i.paidInstallments
-        };
-      });
+    console.log('Duplicating tab:', tabToCopy.name, 'with', tabToCopy.items.length, 'items');
+
+    const newItems: FinanceItem[] = tabToCopy.items.map(i => {
+      const isInstallment = i.paidInstallments !== undefined && i.totalInstallments !== undefined && i.totalInstallments > 0;
+      const reachedEnd = isInstallment && i.paidInstallments! >= i.totalInstallments!;
+      
+      return { 
+        ...i, 
+        id: 'item-' + Math.random().toString(36).substr(2, 9),
+        status: 'pending',
+        paidInstallments: (isInstallment && !reachedEnd) ? (i.paidInstallments! + 1) : i.paidInstallments
+      };
+    });
+
+    // Calcular próximo mês/ano
+    let nextMonth = tabToCopy.month + 1;
+    let nextYear = tabToCopy.year;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
+    }
+
+    const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    const currentMonthName = monthNames[tabToCopy.month - 1];
+    const newName = `${currentMonthName} (copia)`;
 
     const newTab: Ledger = { 
       ...tabToCopy, 
       id: 'tab-' + Date.now(), 
-      name: `${tabToCopy.name} (Cópia)`, 
+      name: newName, 
       items: newItems
     };
+    
+    console.log('New tab created:', newTab.name, 'with', newItems.length, 'items');
     setTabs(prev => [...prev, newTab]); 
     setActiveTabId(newTab.id);
   };
@@ -429,7 +434,7 @@ const App: React.FC = () => {
             </div>
           ) : (
             <>
-              <div className="flex items-center border-b border-slate-200 dark:border-slate-800 overflow-x-auto gap-2 no-scrollbar pb-1">
+              <div className="flex items-center border-b border-slate-200 dark:border-slate-800 overflow-x-auto gap-2 pb-2 custom-scrollbar">
                 {tabs.map((tab) => (
                   <div 
                     key={tab.id} 
@@ -438,14 +443,18 @@ const App: React.FC = () => {
                   >
                     <span className="text-[10px] font-black uppercase tracking-widest">{tab.name}</span>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={(e) => { e.stopPropagation(); renameTab(tab.id, tab.name); }} className="p-1 hover:text-blue-500"><Edit2 size={12} /></button>
                       <button onClick={(e) => { e.stopPropagation(); duplicateTab(tab.id); }} className="p-1 hover:text-blue-500"><Copy size={12} /></button>
                       {tabs.length > 1 && <button onClick={(e) => { e.stopPropagation(); deleteTab(tab.id); }} className="p-1 hover:text-rose-600"><Trash2 size={12} /></button>}
                     </div>
                   </div>
                 ))}
-                <button onClick={addNewTab} className="px-6 py-4 text-slate-400 hover:text-blue-600 transition-all flex items-center gap-2 border-b-2 border-transparent">
-                  <Plus size={16} /><span className="text-[10px] font-black uppercase tracking-widest">Nova Planilha</span>
+                <button 
+                  onClick={addNewTab}
+                  className="flex items-center gap-2 px-6 py-4 text-slate-400 hover:text-blue-500 transition-all whitespace-nowrap"
+                  title="Nova Planilha"
+                >
+                  <Plus size={16} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Nova</span>
                 </button>
               </div>
 
